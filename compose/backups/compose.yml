@@ -1,0 +1,77 @@
+name: streamline-backups
+services:
+  daily-backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      # Default: every day at 1:00 AM
+      - BACKUP_CRON_EXPRESSION=${DAILY_BACKUP_CRON_EXPRESSION:?}
+      # Keep backups for 7 days by default
+      - BACKUP_RETENTION_DAYS=${DAILY_BACKUP_RETENTION_DAYS:?}
+
+      - BACKUP_ARCHIVE=/archive
+      - BACKUP_SOURCES=/backup
+      - BACKUP_PRUNING_PREFIX=${DAILY_BACKUP_FILENAME_PREFIX}
+
+      - BACKUP_FILENAME=${DAILY_BACKUP_FILENAME_PREFIX}-%Y-%m-%dT%H-%M-%S.{{ .Extension }}
+    env_file:
+      - ${STACK_ENV_FILE_RELATIVE_PATH:-default.env}
+
+    volumes:
+      # docker socket to stop/start containers during backup
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # timezone and locale
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+      # mounted volume for backups to the local system.
+      # mount local path (as a destination for backups) to the container path
+      # /host_path/to/backup:/archive <- container path for backups
+      - ${OPTIONAL_VOLUME:-/dev/null:/dev/null}
+
+      # volumes to backup
+      - portainer_data:/backup/portainer_data:ro
+      - data:/backup/data:ro
+
+  weekly-backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      # Default: every Sunday at 1:00 AM
+      - BACKUP_CRON_EXPRESSION=${WEEKLY_BACKUP_CRON_EXPRESSION:?}
+      # Keep weekly backups for 3 weeks
+      - BACKUP_RETENTION_DAYS=${WEEKLY_BACKUP_RETENTION_DAYS:?}
+
+      - BACKUP_ARCHIVE=/archive
+      - BACKUP_SOURCES=/backup
+      - BACKUP_PRUNING_PREFIX=${WEEKLY_BACKUP_FILENAME_PREFIX}
+
+      - BACKUP_FILENAME=${WEEKLY_BACKUP_FILENAME_PREFIX}-%Y-%m-%dT%H-%M-%S.{{ .Extension }}
+    env_file:
+      - ${STACK_ENV_FILE_RELATIVE_PATH:-default.env}
+
+    volumes:
+      # docker socket to stop/start containers during backup
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # timezone and locale
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+      # mounted volume for backups to the local system.
+      # mount local path (as a destination for backups) to the container path
+      # /host_path/to/backup:/archive <- container path for backups
+      - ${OPTIONAL_VOLUME:-/dev/null:/dev/null}
+
+      # volumes to backup
+      - portainer_data:/backup/portainer_data:ro
+      - data:/backup/data:ro
+
+volumes:
+  portainer_data:
+    name: streamline-portainer-data
+    external: true
+  data:
+    name: streamline-data-${FRONTEGG_ENVIRONMENT:?}
+    external: true

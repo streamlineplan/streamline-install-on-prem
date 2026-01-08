@@ -1,0 +1,45 @@
+name: streamline-portainer
+services:
+  portainer:
+    image: portainer/portainer-ce:2.26.1-alpine
+    restart: always
+    ports:
+      ## Portainer is accessible via traefik. But we additionally forward port to host in case when traefik is down.
+      - "9984:9000"
+    labels:
+      # enable auto-update of portainer image
+      - wud.watch=true
+      - wud.tag.include=^2.\d+\.\d+-alpine$$
+
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=PathPrefix(`/admin/portainer`)"
+      - "traefik.http.routers.portainer.service=portainer"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.http.middlewares.portainer-stripprefix.stripprefix.prefixes=/admin/portainer,/admin"
+      - "traefik.http.routers.portainer.middlewares=portainer-stripprefix"
+      - "traefik.http.routers.portainer.entrypoints=web"
+      ## Following rule is used to properly direct requests to portainer.
+      ## Portainer fetches static files using path like /file.css, without prefix "/portainer". And requests gets routed to web (due to traefik rules)
+      ## So following rule detect when controller requests some static file using Referer header and path that ends with .css, .js, etc.
+      ## And route requests back to portainer.
+      - "traefik.http.routers.portainer-referrer.rule=HeaderRegexp(`Referer`, `.*://[^/]+/admin/portainer.*`) && PathRegexp(`.*\\.([a-zA-Z0-9]+)$`)"
+      - "traefik.http.routers.portainer-referrer.middlewares=portainer-stripprefix"
+      - "traefik.http.routers.portainer-referrer.service=portainer"
+      - "traefik.http.routers.portainer-referrer.entrypoints=web"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - data:/data
+
+    networks:
+      streamline-network:
+        aliases:
+          - portainer
+
+volumes:
+  data:
+    name: streamline-portainer-data
+
+networks:
+  streamline-network:
+    name: streamline-network
+    external: true

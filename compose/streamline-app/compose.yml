@@ -1,0 +1,60 @@
+name: streamline-app  ## controller does not use this name, it sets name manually.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:?}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN:?}
+    deploy:
+      replicas: ${CLOUDFLARE_TUNNEL_REPLICAS:?}
+    networks:
+      streamline-network:
+        aliases:
+          - cloudflared
+
+  engine:
+    image: ${ENGINE_IMAGE:?}:${ENGINE_TAG:?}
+    platform: linux/amd64
+    restart: unless-stopped
+    command: --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --log-level=${LOG_LEVEL:?} --deployment-type=on-premises-linux --controller-url=controller-backend:80
+    volumes:
+      - data:/server-data
+    networks:
+      streamline-network:
+        aliases:
+          - engine
+    labels:
+      # This means the container will be stopped during backup to ensure backup integrity.
+      - docker-volume-backup.stop-during-backup=true
+
+
+  web:
+    image: ${WEB_IMAGE:?}:${WEB_TAG:?}
+    platform: linux/amd64
+    restart: unless-stopped
+    command: --mode=http --sl-host=engine --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --sl-port=8080 --sl-ws-port=8081 --admin-path=${CONTROLLER_FRONTEND_URL_PATH:?}
+    volumes:
+      - data:/server-data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.web.loadbalancer.server.port=9982"
+      - "traefik.http.routers.web.rule=PathPrefix(`${STREAMLINE_WEB_URL_PATH:?}`)"
+      - "traefik.http.routers.web.priority=1"  ## Explicitly set priority to 1 to make sure other more specific routers are better fit.
+      - "traefik.http.routers.web.service=web"
+      - "traefik.http.routers.web.entrypoints=web"    
+      # This means the container will be stopped during backup to ensure backup integrity.  
+      - docker-volume-backup.stop-during-backup=true
+    networks:
+      streamline-network:
+        aliases:
+          - web
+volumes:
+  data:
+    name: ${STREAMLINE_VOLUME_NAME:?}
+    external: true
+
+networks:
+  streamline-network:
+    name: ${DOCKER_NETWORK_NAME:?}
+    external: true
+
+
