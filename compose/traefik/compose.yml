@@ -1,0 +1,31 @@
+name: streamline-traefik
+services:
+  traefik:
+    image: traefik:v3.6.2
+    restart: always
+    command:
+      - --configFile=/server-data/traefik/static-config.yml
+    ports:
+      - "${FORWARDED_PORT:?}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - data:/server-data
+    networks:
+      streamline-network:
+        aliases:
+          - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=PathPrefix(`/admin/traefik`)"  ## This path prefix is also configured in static config file.
+      ## Traefik API service will be available only if access to Traefik API & Dashboard is enabled via Traefik static config file.
+      ## By default it is disabled.
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=web"
+volumes:
+  data:
+    name: ${STREAMLINE_VOLUME_NAME:?}
+    external: true
+networks:
+  streamline-network:
+    name: ${DOCKER_NETWORK_NAME:?} 
+    external: true
