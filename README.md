@@ -9,9 +9,7 @@ For installation instructions, please refer to [INSTALL.md](installer/INSTALL.md
 Streamline consists of four main components:
 
 1. **Portainer** - A container management UI that allows you to manage your Docker containers, images, networks, and volumes through a web interface.
-
 2. **Traefik** - A reverse proxy that provides external access to components of system. For example, main streamline app is accesible on path `/`, controller frontend is accessible on path `/admin/ui`.
-
 3. **Controller** - A management system that controls deployment of most other components.
 
    - Frontend - A web interface for managing Streamline
@@ -35,4 +33,5 @@ Volume (`streamline-data`) used for storing data of most components.
 
 
 ## Support
+
 For issues or questions, please refer to the Streamline documentation or contact your system administrator.

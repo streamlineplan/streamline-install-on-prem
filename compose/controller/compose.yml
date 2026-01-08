@@ -16,6 +16,7 @@ services:
   #     # disable auto-updates for all containers by default (except for those with wud.watch=true label deliberately set)
   #     - WUD_WATCHER_LOCAL_WATCHBYDEFAULT=false
 
+
   controller-backend:
     image: ${CONTROLLER_BACKEND_IMAGE:?}:${CONTROLLER_BACKEND_TAG:?}
     restart: unless-stopped
