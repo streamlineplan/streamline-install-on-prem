@@ -14,7 +14,7 @@ If you want to install production versions (latest release and recommended relea
 
 ```bash
 export STREAMLINE_VERSION=production-latest
-curl -fsSL https://api.bitbucket.org/2.0/repositories/gsmerc/streamline-install-on-prem/src/$STREAMLINE_VERSION/installer/bootstrap.sh | sudo -E bash 
+curl -fsSL "https://raw.githubusercontent.com/streamlineplan/streamline-install-on-prem/$STREAMLINE_VERSION/installer/bootstrap.sh" | sudo -E bash
 ```
 
 If you want to install development versions:
@@ -24,11 +24,11 @@ export STREAMLINE_DOCKERHUB_REGISTRY_TOKEN=<dockerhub token>  ## required until 
 export STREAMLINE_REPO=streamline-install-on-prem-dev
 export STREAMLINE_ENVIRONMENT=development
 export STREAMLINE_VERSION=<branch name> # branch of this repo
-export STREAMLINE_VERSION_COMMIT=<commit hash> # commit hash of the branch
-export STREAMLINE_REPO_USERNAME=<username>  ## your bitbucket username
-export STREAMLINE_REPO_PASSWORD=<password>  ## your bitbucket password
+export STREAMLINE_REPO_USERNAME=<username>  ## your github username
+export STREAMLINE_REPO_PASSWORD=<github personal access token>  ## your github personal access token
 
-curl -fsSL -u $STREAMLINE_REPO_USERNAME:$STREAMLINE_REPO_PASSWORD https://api.bitbucket.org/2.0/repositories/gsmerc/$STREAMLINE_REPO/src/$STREAMLINE_VERSION_COMMIT/installer/bootstrap.sh | sudo -E bash
+curl -fsSL -H "Authorization: Bearer $STREAMLINE_REPO_PASSWORD" "https://raw.githubusercontent.com/streamlineplan/$STREAMLINE_REPO/$STREAMLINE_VERSION/installer/bootstrap.sh" | sudo -E bash
+
 ```
 
 Additional environment variables:
