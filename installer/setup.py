@@ -325,7 +325,7 @@ def deploy_controller_stack(portainer_url, jwt_token):
     username = os.getenv("STREAMLINE_REPO_USERNAME")
     password = os.getenv("STREAMLINE_REPO_PASSWORD")
 
-    repo_url = f"https://{username + "@" if username is not None else ''}bitbucket.org/gsmerc/{os.getenv("STREAMLINE_REPO")}.git"
+    repo_url = f"https://{username + "@" if username is not None else ''}github.com/streamlineplan/{os.getenv("STREAMLINE_REPO")}.git"
     print(f"Git repository URL: {repo_url}")
         
     has_credentials = username is not None and password is not None
