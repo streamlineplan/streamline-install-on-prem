@@ -22,10 +22,10 @@ export STREAMLINE_REPO
 
 echo "Downloading installation files..."
 
-if [ -n "$STREAMLINE_REPO_USERNAME" ] && [ -n "$STREAMLINE_REPO_PASSWORD" ]; then
-    curl -fsSL -o /tmp/$STREAMLINE_REPO.tar.gz -u $STREAMLINE_REPO_USERNAME:$STREAMLINE_REPO_PASSWORD https://bitbucket.org/gsmerc/$STREAMLINE_REPO/get/$STREAMLINE_VERSION.tar.gz
+if [ -n "$STREAMLINE_REPO_PASSWORD" ]; then
+    curl -fsSL -o /tmp/$STREAMLINE_REPO.tar.gz -H "Authorization: Bearer $STREAMLINE_REPO_PASSWORD" https://api.github.com/repos/streamlineplan/$STREAMLINE_REPO/tarball/$STREAMLINE_VERSION
 else
-    curl -fsSL -o /tmp/$STREAMLINE_REPO.tar.gz https://bitbucket.org/gsmerc/$STREAMLINE_REPO/get/$STREAMLINE_VERSION.tar.gz
+    curl -fsSL -o /tmp/$STREAMLINE_REPO.tar.gz https://api.github.com/repos/streamlineplan/$STREAMLINE_REPO/tarball/$STREAMLINE_VERSION
 fi
 mkdir -p /tmp/$STREAMLINE_REPO
 tar -xzf /tmp/$STREAMLINE_REPO.tar.gz -C /tmp/$STREAMLINE_REPO/ --strip-components=1
