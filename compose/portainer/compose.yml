@@ -1,7 +1,7 @@
 name: streamline-portainer
 services:
   portainer:
-    image: portainer/portainer-ce:2.26.1-alpine
+    image: portainer/portainer-ce:2.39.1-alpine
     restart: always
     ports:
       ## Portainer is accessible via traefik. But we additionally forward port to host in case when traefik is down.
