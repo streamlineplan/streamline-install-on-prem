@@ -32,6 +32,23 @@ System uses a shared network (`streamline-network`) to enable communication betw
 Volume (`streamline-data`) used for storing data of most components.
 
 
+## Network requirements
+
+The host machine must be able to reach the following domains over HTTPS (TCP/443) for installation, image pulls, image-signature verification, and runtime updates. If you operate behind a corporate firewall, add these to the allowlist **before** running the installer.
+
+| Pattern | Used by | Concrete hostnames covered |
+|---|---|---|
+| `github.com` | Installer + controller | apex domain — Sigstore Cosign release binary download page (the wildcard below does not match the apex) |
+| `*.github.com` | Streamline controller | `api.github.com` — GitHub API used by the controller for repository operations |
+| `*.githubusercontent.com` | Installer + controller | `raw.githubusercontent.com` (bootstrap scripts), `objects.githubusercontent.com` (GitHub release artifact CDN, Cosign redirect target) |
+| `*.docker.io` | Portainer | `registry-1.docker.io`, `hub.docker.com` — Docker Hub image pulls |
+| `*.sigstore.dev` | Controller (image signature verify) | `rekor.sigstore.dev` (transparency log), `fulcio.sigstore.dev` (keyless CA), `tuf-repo-cdn.sigstore.dev` (TUF trusted root metadata) |
+
+> If your firewall does not support wildcard rules, allowlist the concrete hostnames listed in the third column instead.
+
+The `*.sigstore.dev` endpoints are **mandatory**: the controller verifies every image signature before pulling it, and if these endpoints are unreachable, auto-updates pause until connectivity is restored.
+
+
 ## Support
 
 For issues or questions, please refer to the Streamline documentation or contact your system administrator.
