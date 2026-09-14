@@ -48,11 +48,9 @@ services:
         aliases:
           - web
 
-  # Turns the engine's HTTP API into MCP tools for AI clients.
-  #
-  # Opt-in, the same way cloudflared above is: the controller sets MCP_REPLICAS=1 together
-  # with MCP_PUBLIC_URL when the customer enables it, and 0 with an empty URL turns it off.
-  # An empty MCP_PUBLIC_URL is also what the engine's --mcp-url reads as "no MCP server".
+  # MCP server. Gives AI clients the engine's API as tools.
+  # Off by default, like cloudflared. The controller sets MCP_REPLICAS and MCP_PUBLIC_URL
+  # together when the customer turns it on.
   mcp:
     image: ${MCP_IMAGE:?}:${MCP_TAG:?}
     platform: linux/amd64
@@ -60,30 +58,19 @@ services:
     deploy:
       replicas: ${MCP_REPLICAS:-0}
     environment:
-      # The engine over the internal network, the same way web reaches it. Its certificate
-      # is self-signed and issued for no name in here, so verification is off.
+      # The engine's certificate is self-signed, so skip verification.
       STREAMLINE_BASE_URL: https://engine:8080
       STREAMLINE_TLS_VERIFY: "false"
-      # The same Frontegg the engine validates against - the other one issues tokens the
-      # engine rejects.
+      # Must be the same Frontegg the engine checks tokens against.
       STREAMLINE_FRONTEGG_ENVIRONMENT: ${FRONTEGG_ENVIRONMENT:?}
-      # The URL clients use, prefix included. Everything the OAuth flow advertises derives
-      # from it: the issuer, the audience tokens are bound to, and the redirect Frontegg
-      # returns the browser to. Traefik below spends the prefix getting here, so the MCP
-      # endpoint sits at this container's root - where the OAuth routes are - and one
-      # prefix covers both.
+      # The URL clients use, with the /mcp prefix. The OAuth issuer, the token audience
+      # and the Frontegg redirect are all built from it.
       STREAMLINE_MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
+      # Traefik strips the prefix, so serve everything at the root here.
       STREAMLINE_MCP_PATH: /
-      # This deployment's Frontegg client registration and its OAuth storage, in the
-      # server's own volume so the existing backup and restore already cover them. Losing
-      # them registers a fresh Frontegg client - which Frontegg gives no way to delete -
-      # and changes the key MCP tokens are signed with, logging every client out.
-      #
-      # The whole volume rather than just this subdirectory: `volume.subpath` would isolate
-      # it the way the Helm chart does, but it needs Compose >= 2.30, and this file is
-      # parsed on every stack operation - so on an older Docker it would break engine and
-      # web too, for customers who never enable MCP. Worth revisiting once there is a
-      # minimum Compose version.
+      # Frontegg client registration and OAuth storage. Kept in the server's volume so
+      # backup and restore cover them. If they are lost, MCP registers a new Frontegg
+      # client that nobody can delete, and every client has to log in again.
       STREAMLINE_STATE_DIR: /server-data/mcp/state
       FASTMCP_HOME: /server-data/mcp/fastmcp
       STREAMLINE_MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-INFO}
@@ -93,21 +80,17 @@ services:
       - "traefik.enable=true"
       - "traefik.http.services.mcp.loadbalancer.server.port=9984"
 
-      ## The endpoint and every OAuth route the server mounts (/authorize, /token,
-      ## /register, /consent, /auth/callback, /.well-known/*) live under this one prefix,
-      ## which is stripped here. Serving them at the host root instead would take
-      ## /register and /auth/callback from the web client, which uses its own.
+      ## MCP also serves its own OAuth routes (/authorize, /token, /register, /consent,
+      ## /auth/callback). They all sit under this prefix, so they don't clash with the
+      ## web client, which has its own /register and /auth/callback.
       - "traefik.http.routers.mcp.rule=PathPrefix(`${MCP_URL_PATH:-/mcp}`)"
       - "traefik.http.routers.mcp.service=mcp"
       - "traefik.http.routers.mcp.entrypoints=web"
       - "traefik.http.middlewares.mcp-stripprefix.stripprefix.prefixes=${MCP_URL_PATH:-/mcp}"
       - "traefik.http.routers.mcp.middlewares=mcp-stripprefix"
 
-      ## RFC 9728 and RFC 8414 put these two documents at the *host root* with the
-      ## resource's own path appended, and a client asks for the second one before it has
-      ## read anything of ours. The container serves them at exactly these paths, so this
-      ## router deliberately carries no stripprefix. Neither can collide with the web
-      ## client: the MCP prefix is inside them.
+      ## Two OAuth discovery documents. The specs put them at the host root, and a client
+      ## asks for them first. No stripprefix here - MCP serves them at these exact paths.
       - "traefik.http.routers.mcp-metadata.rule=PathPrefix(`/.well-known/oauth-protected-resource${MCP_URL_PATH:-/mcp}`) || PathPrefix(`/.well-known/oauth-authorization-server${MCP_URL_PATH:-/mcp}`)"
       - "traefik.http.routers.mcp-metadata.service=mcp"
       - "traefik.http.routers.mcp-metadata.entrypoints=web"
@@ -118,8 +101,8 @@ services:
       streamline-network:
         aliases:
           - mcp
-    # The port is bound only after every tool is generated, so accepting connections
-    # genuinely means ready. The start_period covers parsing both OpenAPI bundles.
+    # The port opens only after all tools are built, so a connection means it is ready.
+    # Building them takes a while, hence the long start_period.
     healthcheck:
       test:
         - CMD
