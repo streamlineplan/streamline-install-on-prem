@@ -15,7 +15,7 @@ services:
     image: ${ENGINE_IMAGE:?}:${ENGINE_TAG:?}
     platform: linux/amd64
     restart: unless-stopped
-    command: --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --log-level=${LOG_LEVEL:?} --deployment-type=on-premises-linux --controller-url=controller-backend:80 --mcp-url=${MCP_PUBLIC_URL}
+    command: --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --log-level=${LOG_LEVEL:?} --deployment-type=on-premises-linux --controller-url=controller-backend:80 --mcp-url=${MCP_PUBLIC_URL:-}
     volumes:
       - data:/server-data
     networks:
@@ -54,12 +54,7 @@ services:
   # with MCP_PUBLIC_URL when the customer enables it, and 0 with an empty URL turns it off.
   # An empty MCP_PUBLIC_URL is also what the engine's --mcp-url reads as "no MCP server".
   mcp:
-    ## Defaults rather than `${...:?}`: every other service here is seeded by the
-    ## installer, these two are not, and this file is rendered on every stack
-    ## operation - so a required-but-missing variable would break engine and web on
-    ## a stack that predates MCP. The real values come from default.env; the `unset`
-    ## tag can only ever be pulled if MCP_REPLICAS was raised without them.
-    image: ${MCP_IMAGE:-gmdhstreamline/mcp-dev}:${MCP_TAG:-unset}
+    image: ${MCP_IMAGE:?}:${MCP_TAG:?}
     platform: linux/amd64
     restart: unless-stopped
     deploy:
@@ -77,7 +72,7 @@ services:
       # returns the browser to. Traefik below spends the prefix getting here, so the MCP
       # endpoint sits at this container's root - where the OAuth routes are - and one
       # prefix covers both.
-      STREAMLINE_MCP_PUBLIC_URL: ${MCP_PUBLIC_URL}
+      STREAMLINE_MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
       STREAMLINE_MCP_PATH: /
       # This deployment's Frontegg client registration and its OAuth storage, in the
       # server's own volume so the existing backup and restore already cover them. Losing
