@@ -54,7 +54,10 @@ services:
   # Off by default, like cloudflared. The controller sets MCP_REPLICAS and MCP_PUBLIC_URL
   # together when the customer turns it on.
   mcp:
-    image: ${MCP_IMAGE:?}:${MCP_TAG:?}
+    # Defaults, not ${...:?}, so a stack whose env list predates MCP still renders.
+    # Portainer drops the containers before rendering, so a failure here takes engine
+    # and web down with it. No -dev suffix: the release sync only rewrites KEY=value lines.
+    image: ${MCP_IMAGE:-gmdhstreamline/mcp}:${MCP_TAG:-v2026-9-2-2}
     platform: linux/amd64
     restart: unless-stopped
     deploy:
