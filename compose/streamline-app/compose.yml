@@ -11,11 +11,13 @@ services:
         aliases:
           - cloudflared
 
+  # ENGINE_MCP_ARG is the whole --mcp-url flag, or empty. It has to disappear when MCP is
+  # off: engines older than v2026-9-1-0 do not know the flag and refuse to start.
   engine:
     image: ${ENGINE_IMAGE:?}:${ENGINE_TAG:?}
     platform: linux/amd64
     restart: unless-stopped
-    command: --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --log-level=${LOG_LEVEL:?} --deployment-type=on-premises-linux --controller-url=controller-backend:80
+    command: --frontegg-env=${FRONTEGG_ENVIRONMENT:?} --log-level=${LOG_LEVEL:?} --deployment-type=on-premises-linux --controller-url=controller-backend:80 ${ENGINE_MCP_ARG:-}
     volumes:
       - data:/server-data
     networks:
@@ -47,6 +49,75 @@ services:
       streamline-network:
         aliases:
           - web
+
+  # MCP server. Gives AI clients the engine's API as tools.
+  # Off by default, like cloudflared. The controller sets MCP_REPLICAS and MCP_PUBLIC_URL
+  # together when the customer turns it on.
+  mcp:
+    # Defaults, not ${...:?}, so a stack whose env list predates MCP still renders.
+    # Portainer drops the containers before rendering, so a failure here takes engine
+    # and web down with it. No -dev suffix: the release sync only rewrites KEY=value lines.
+    image: ${MCP_IMAGE:-gmdhstreamline/mcp}:${MCP_TAG:-v2026-9-2-2}
+    platform: linux/amd64
+    restart: unless-stopped
+    deploy:
+      replicas: ${MCP_REPLICAS:-0}
+    environment:
+      # The engine's certificate is self-signed, so skip verification.
+      STREAMLINE_BASE_URL: https://engine:8080
+      STREAMLINE_TLS_VERIFY: "false"
+      # Must be the same Frontegg the engine checks tokens against.
+      STREAMLINE_FRONTEGG_ENVIRONMENT: ${FRONTEGG_ENVIRONMENT:?}
+      # The URL clients use, with the /mcp prefix. The OAuth issuer, the token audience
+      # and the Frontegg redirect are all built from it.
+      STREAMLINE_MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
+      # Traefik strips the prefix, so serve everything at the root here.
+      STREAMLINE_MCP_PATH: /
+      # Frontegg client registration and OAuth storage. Kept in the server's volume so
+      # backup and restore cover them. If they are lost, MCP registers a new Frontegg
+      # client that nobody can delete, and every client has to log in again.
+      STREAMLINE_STATE_DIR: /server-data/mcp/state
+      FASTMCP_HOME: /server-data/mcp/fastmcp
+      STREAMLINE_MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-INFO}
+    volumes:
+      - data:/server-data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.mcp.loadbalancer.server.port=9984"
+
+      ## MCP also serves its own OAuth routes (/authorize, /token, /register, /consent,
+      ## /auth/callback). They all sit under this prefix, so they don't clash with the
+      ## web client, which has its own /register and /auth/callback.
+      - "traefik.http.routers.mcp.rule=PathPrefix(`${MCP_URL_PATH:-/mcp}`)"
+      - "traefik.http.routers.mcp.service=mcp"
+      - "traefik.http.routers.mcp.entrypoints=web"
+      - "traefik.http.middlewares.mcp-stripprefix.stripprefix.prefixes=${MCP_URL_PATH:-/mcp}"
+      - "traefik.http.routers.mcp.middlewares=mcp-stripprefix"
+
+      ## Two OAuth discovery documents. The specs put them at the host root, and a client
+      ## asks for them first. No stripprefix here - MCP serves them at these exact paths.
+      - "traefik.http.routers.mcp-metadata.rule=PathPrefix(`/.well-known/oauth-protected-resource${MCP_URL_PATH:-/mcp}`) || PathPrefix(`/.well-known/oauth-authorization-server${MCP_URL_PATH:-/mcp}`)"
+      - "traefik.http.routers.mcp-metadata.service=mcp"
+      - "traefik.http.routers.mcp-metadata.entrypoints=web"
+
+      # This means the container will be stopped during backup to ensure backup integrity.
+      - docker-volume-backup.stop-during-backup=true
+    networks:
+      streamline-network:
+        aliases:
+          - mcp
+    # The port opens only after all tools are built, so a connection means it is ready.
+    # Building them takes a while, hence the long start_period.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(('127.0.0.1', 9984), 2).close()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 volumes:
   data:
     name: ${STREAMLINE_VOLUME_NAME:?}
