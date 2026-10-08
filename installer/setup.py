@@ -32,7 +32,6 @@ PORTAINER_ADMIN_PASSWORD_FILE = f"/.portainer-admin-pwd.txt"
 PORTAINER_REGISTRY_NAME = "gmdhstreamline"
 
 DOCKERHUB_REGISTRY_NAME = "gmdhstreamline"
-DOCKERHUB_REGISTRY_USERNAME = "gmdhstreamline"
 
 LOCAL_PORTAINER_ENDPOINT_ID = None  # Will be set dynamically
 PORTAINER_ENDPOINT_CREATION_TYPE = 1
@@ -116,35 +115,54 @@ def run_command(cmd, env={}):
         sys.exit(1)
 
 
-def setup_dockerhub_registry(portainer_url, jwt_token, dockerhub_token):
-    response = requests.get(f"{portainer_url}/api/registries", headers={
-        "Authorization": f"Bearer {jwt_token}"
-    })
+def get_dockerhub_credentials():
+    """Return (username, token) for the Docker Hub registry, or None if not provided."""
+    username = os.getenv("STREAMLINE_DOCKERHUB_REGISTRY_USERNAME")
+    token = os.getenv("STREAMLINE_DOCKERHUB_REGISTRY_TOKEN")
+    if not username and not token:
+        return None
+    if not username or not token:
+        print(f"{ERROR}STREAMLINE_DOCKERHUB_REGISTRY_USERNAME and STREAMLINE_DOCKERHUB_REGISTRY_TOKEN must be set together")
+        sys.exit(1)
+    return username, token
+
+
+def setup_dockerhub_registry(portainer_url, jwt_token, dockerhub_username, dockerhub_token):
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    registry_payload = {
+        "name": PORTAINER_REGISTRY_NAME,
+        "url": "docker.io",
+        "username": dockerhub_username,
+        "password": dockerhub_token,
+        "authentication": True
+    }
+
+    response = requests.get(f"{portainer_url}/api/registries", headers=headers)
     response.raise_for_status()
 
-    registry_exists = any(registry.get('Name') == PORTAINER_REGISTRY_NAME for registry in response.json())
-    if registry_exists:
-        print(f"{SUCCESS}Dockerhub registry already exists in Portainer")
+    existing = next((r for r in response.json() if r.get('Name') == PORTAINER_REGISTRY_NAME), None)
+    if existing is not None:
+        # Overwrite credentials so that re-running the installer fixes a registry created with wrong ones
+        print(f"Dockerhub registry already exists in Portainer, updating credentials...")
+        response = requests.put(
+            f"{portainer_url}/api/registries/{existing['Id']}",
+            headers=headers,
+            json=registry_payload
+        )
+        response.raise_for_status()
+        print(f"{SUCCESS}Dockerhub registry credentials updated (username: {dockerhub_username})")
         return
+
     print(f"Creating registry in Portainer...")
     response = requests.post(
         f"{portainer_url}/api/registries",
-        headers={
-        "Authorization": f"Bearer {jwt_token}"
-        },
-        json={
-            "type": DOCKERHUB_REGISTRY_TYPE,
-            "name": PORTAINER_REGISTRY_NAME,
-            "url": "docker.io",
-            "username": DOCKERHUB_REGISTRY_USERNAME,
-            "password": dockerhub_token,
-            "authentication": True
-        }
+        headers=headers,
+        json={"type": DOCKERHUB_REGISTRY_TYPE, **registry_payload}
     )
     response.raise_for_status()
-    print(f"{SUCCESS}Dockerhub registry created in Portainer")
+    print(f"{SUCCESS}Dockerhub registry created in Portainer (username: {dockerhub_username})")
 
-def setup_portainer():
+def setup_portainer(dockerhub_credentials):
     """Setup and configure Portainer."""    
     # Start Portainer
     print(f"Starting Portainer...")
@@ -194,12 +212,11 @@ def setup_portainer():
     # Authenticate with Portainer API and get JWT token
     jwt_token = authenticate_with_portainer(portainer_url, password)
 
-    dockerhub_token = os.getenv("STREAMLINE_DOCKERHUB_REGISTRY_TOKEN")
-    if dockerhub_token is not None:
-        print(f"Dockerhub token provided, setting up dockerhub registry in Portainer...")
-        setup_dockerhub_registry(portainer_url, jwt_token, dockerhub_token)
+    if dockerhub_credentials is not None:
+        print(f"Dockerhub credentials provided, setting up dockerhub registry in Portainer...")
+        setup_dockerhub_registry(portainer_url, jwt_token, *dockerhub_credentials)
     else:
-        print(f"Dockerhub token not provided, skipping dockerhub registry setup")
+        print(f"Dockerhub credentials not provided, skipping dockerhub registry setup")
 
     ensure_portainer_endpoint_exists(portainer_url, jwt_token)
     
@@ -398,7 +415,9 @@ def main():
 
         ensure_root()
 
-        portainer_url, jwt_token = setup_portainer()
+        dockerhub_credentials = get_dockerhub_credentials()
+
+        portainer_url, jwt_token = setup_portainer(dockerhub_credentials)
         
         deploy_controller_stack(portainer_url, jwt_token)
 

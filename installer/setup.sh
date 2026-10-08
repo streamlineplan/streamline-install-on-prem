@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export SETUP_SCRIPT_VERSION="3.0.0"
+export SETUP_SCRIPT_VERSION="3.1.0"
 
 INSTALL_DIR="/var/lib/gmdh-streamline-server"
 mkdir -p "$INSTALL_DIR"
