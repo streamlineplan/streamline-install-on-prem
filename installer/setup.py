@@ -31,8 +31,6 @@ TRAEFIK_ENV_PATH = "compose/traefik/default.env"
 PORTAINER_ADMIN_PASSWORD_FILE = f"/.portainer-admin-pwd.txt"
 PORTAINER_REGISTRY_NAME = "gmdhstreamline"
 
-DOCKERHUB_REGISTRY_NAME = "gmdhstreamline"
-
 LOCAL_PORTAINER_ENDPOINT_ID = None  # Will be set dynamically
 PORTAINER_ENDPOINT_CREATION_TYPE = 1
 DOCKERHUB_REGISTRY_TYPE = 6  ## Portainer constant for DockerHub registry

@@ -45,4 +45,4 @@ Additional environment variables:
 
 ## Dev notes
 
-Attention: when changing the script, also update the `SETUP_SCRIPT_VERSION` in the `bootstrap.sh` file according to semver rules.
+Attention: when changing the script, also update the `SETUP_SCRIPT_VERSION` in the `setup.sh` file according to semver rules.
