@@ -20,7 +20,8 @@ curl -fsSL "https://raw.githubusercontent.com/streamlineplan/streamline-install-
 If you want to install development versions:
 
 ```bash
-export STREAMLINE_DOCKERHUB_REGISTRY_TOKEN=<dockerhub token>  ## required until our images are public
+export STREAMLINE_DOCKERHUB_REGISTRY_USERNAME=streamlineplandev  ## Docker Hub account that can pull dev images
+export STREAMLINE_DOCKERHUB_REGISTRY_TOKEN=<dockerhub token>  ## access token of that account
 export STREAMLINE_REPO=streamline-install-on-prem-dev
 export STREAMLINE_ENVIRONMENT=development
 export STREAMLINE_VERSION=<branch name> # branch of this repo
@@ -33,6 +34,7 @@ curl -fsSL -H "Authorization: Bearer $STREAMLINE_REPO_PASSWORD" "https://raw.git
 
 Additional environment variables:
 
+- `STREAMLINE_DOCKERHUB_REGISTRY_USERNAME`, `STREAMLINE_DOCKERHUB_REGISTRY_TOKEN` - Docker Hub account and its access token for pulling private images. Must be set together. The installer adds them to Portainer as the `gmdhstreamline` registry; re-running the installer overwrites the credentials of an existing registry.
 - `STREAMLINE_CF_TUNNEL_TOKEN` - token for cloudflare tunnel. If provided, tunnel will be setup automatically.
 - `STREAMLINE_CONTROLLER_BACKEND_IMAGE` - docker image for controller backend. If not provided, value from default.env will be used.
 - `STREAMLINE_CONTROLLER_FRONTEND_IMAGE` - docker image for controller frontend. If not provided, value from default.env will be used.
@@ -43,4 +45,4 @@ Additional environment variables:
 
 ## Dev notes
 
-Attention: when changing the script, also update the `SETUP_SCRIPT_VERSION` in the `bootstrap.sh` file according to semver rules.
+Attention: when changing the script, also update the `SETUP_SCRIPT_VERSION` in the `setup.sh` file according to semver rules.

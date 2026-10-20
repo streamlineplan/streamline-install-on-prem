@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export SETUP_SCRIPT_VERSION="3.0.0"
+export SETUP_SCRIPT_VERSION="3.1.0"
 
 INSTALL_DIR="/var/lib/gmdh-streamline-server"
 mkdir -p "$INSTALL_DIR"
@@ -118,6 +118,12 @@ chmod 666 $PORTAINER_ADMIN_PASSWORD_FILE
 
 # Create temporary env file for STREAMLINE_ variables
 TEMP_ENV_FILE=$(mktemp)
+# The env file holds tokens in plain text, so remove it even if the installer fails (set -e)
+cleanup() {
+    rm -f "$TEMP_ENV_FILE"
+    docker image rm gmdh-streamline-installer >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 env | grep '^STREAMLINE_' > "$TEMP_ENV_FILE"
 
 docker run --rm \
@@ -129,11 +135,6 @@ docker run --rm \
   --env-file "$TEMP_ENV_FILE" \
   gmdh-streamline-installer \
   "$@"
-
-# Clean up temporary env file
-rm -f "$TEMP_ENV_FILE"
-
-docker image rm gmdh-streamline-installer >/dev/null 2>&1
 
 # Set ownership for the portainer admin password file to the sudo caller and ensure user 999 (controller backend) can read it
 if [ -n "$SUDO_USER" ]; then
