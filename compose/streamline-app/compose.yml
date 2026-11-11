@@ -79,6 +79,9 @@ services:
       STREAMLINE_STATE_DIR: /server-data/mcp/state
       FASTMCP_HOME: /server-data/mcp/fastmcp
       STREAMLINE_MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-INFO}
+      # The web's page-link catalog for the AI assistant, from the web service of this
+      # stack. An older web answers 404 and the assistant answers without page links.
+      STREAMLINE_UI_CATALOG: http://web:9982/ai-link-catalog.json
     volumes:
       - data:/server-data
     labels:
